@@ -113,4 +113,5 @@ class Habit_execution(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.habit.title} - {self.execution_date}"
+        return (f"{self.habit.title} - "
+                f" {self.execution_date}")
