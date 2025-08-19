@@ -9,23 +9,23 @@ class ModelUser(models.Model):
 
         # TIPO DE USUARIO
     USER_TYPE_CHOICHES = [
-        ('beginner', 'Principiante'),
-        ('intermediate', 'Intermedio'),
-        ('advanced', 'Avanzado'),
-        ('athlete', 'Deportista Alto Rendimiento'),
-        ('professional', 'Profesional Ocupado'),
-        ('student', 'Estudiante'),
+        ('Beginner', 'Principiante'),
+        ('Intermediate', 'Intermedio'),
+        ('Advanced', 'Avanzado'),
+        ('Athlete', 'Deportista Alto Rendimiento'),
+        ('Professional', 'Profesional Ocupado'),
+        ('Student', 'Estudiante'),
     ]
         # AREAS DE FOCO
     FOCUS_AREA_CHOICES = [
-        ('fitness', 'Entrenamiento Físico'),
-        ('health', 'Salud y Bienestar'),
-        ('learning', 'Lectura y Aprendizaje'),
-        ('work', 'Productividad Laboral'),
-        ('creativity', 'Creatividad y Arte'),
-        ('mindfulness', 'Mindfulness y Meditación'),
-        ('social', 'Relaciones Sociales'),
-        ('finance', 'Finanzas Personales'),
+        ('Fitness', 'Entrenamiento Físico'),
+        ('Health', 'Salud y Bienestar'),
+        ('Learning', 'Lectura y Aprendizaje'),
+        ('Work', 'Productividad Laboral'),
+        ('Creativity', 'Creatividad y Arte'),
+        ('Mindfulness', 'Mindfulness y Meditación'),
+        ('Social', 'Relaciones Sociales'),
+        ('Finance', 'Finanzas Personales'),
     ]
 
         # TIEMPO A DEDICAR
@@ -39,20 +39,20 @@ class ModelUser(models.Model):
     user_type = models.CharField(max_length=70, choices=USER_TYPE_CHOICHES)
     created_at = models.DateTimeField(auto_now_add=True)
     first_focus_area = models.CharField(max_length=100, choices=FOCUS_AREA_CHOICES)
-    secondary_focus_area = models.JSONField(default=list, blank=True, help_text="Otras areas de foco")
-    daily_time_availability = models.CharField(max_length=100, choices=TIME_AVAILABILITY_CHOICES)
-    preferred_morning_time = models.TimeField(null=True, blank=True, help_text="Horas preferidas por la mañana")
-    preferred_evening_time = models.TimeField(null=True, black=True, help_text="Horas preferidas por la tarde")
+    secondary_focus_area = models.JSONField(default=list, blank=True, help_text = "Otras areas de foco")
+    daily_time_availability = models.CharField(max_length=100, choices = TIME_AVAILABILITY_CHOICES)
+    preferred_morning_time = models.TimeField(null=True, blank=True, help_text = "Horas preferidas por la mañana")
+    preferred_evening_time = models.TimeField(null=True, black=True, help_text = "Horas preferidas por la tarde")
     motivation_level = models.IntegerField(
-        validators=[MinValueValidator(1),   MaxValueValidator(20)],
-        help_text="Nivel de motivacion de 1 ha 10"
+        validators = [MinValueValidator(1),   MaxValueValidator(20)],
+        help_text = "Nivel de motivacion de 1 ha 10"
     )
 
     user_objective = models.TextField(help_text="Objetivos principales del usuario")
     experience_level_user = models.IntegerField(
-        validators=[MinValueValidator(1), MaxValueValidator(20)],
-        default=1,
-        help_text= "Nivel de experiencia del usuario"
+        validators = [MinValueValidator(1), MaxValueValidator(20)],
+        default = 1,
+        help_text = "Nivel de experiencia del usuario"
     )
 
     def __str__(self):
@@ -66,10 +66,18 @@ class Habits(models.Model):
 
     ]
 
+    PRIORITY_CHOICES = [
+        ('Low','Baja'),
+        ('Medium','Media'),
+        ('High','Alta'),
+        ('Very high', 'Muy alta')
+    ]
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="habits")
     title = models.CharField(max_length=260)
     description = models.TextField(black=True)
     frequency = models.CharField(max_length=20, choices=FREQUENCY_CHOICES)
+    priority = models.TextField(choices=PRIORITY_CHOICES, help_text= "Prioridad del habito")
     target_minutes = models.PositiveIntegerField(
         validators = [MaxValueValidator(1), MaxValueValidator(100)],
         help_text = "Duracion en minutos"
@@ -92,7 +100,7 @@ class Habits(models.Model):
 class Habit_execution(models.Model):
     STATUS_CHOICES = [
         ('Completed', 'Completada'),
-        ('stand by', 'Pendiente'),
+        ('Stand by', 'Pendiente'),
         ('Skipped', 'Omitida'),
         ('Not executed', 'Sin ejecutarse')
     ]
@@ -106,12 +114,18 @@ class Habit_execution(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ['habit', 'execution_date']
+        unique_together = ['user', 'habit',
+                           'execution_date',
+                           'status']
         indexes = [
-            models.Index(fields=['user', 'execution_date']),
-            models.Index(fields=['habit', 'execution_date']),
+            models.Index(fields=['user',
+                                 'execution_date']),
+            models.Index(fields=['habit',
+                                 'execution_date']),
         ]
 
     def __str__(self):
         return (f"{self.habit.title} - "
-                f" {self.execution_date}")
+                f" {self.execution_date} - "
+                f"")
+
