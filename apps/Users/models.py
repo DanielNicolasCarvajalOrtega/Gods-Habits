@@ -42,7 +42,7 @@ class ModelUser(models.Model):
     secondary_focus_area = models.JSONField(default=list, blank=True, help_text = "Otras areas de foco")
     daily_time_availability = models.CharField(max_length=100, choices = TIME_AVAILABILITY_CHOICES)
     preferred_morning_time = models.TimeField(null=True, blank=True, help_text = "Horas preferidas por la mañana")
-    preferred_evening_time = models.TimeField(null=True, black=True, help_text = "Horas preferidas por la tarde")
+    preferred_evening_time = models.TimeField(null=True, blank=True, help_text = "Horas preferidas por la tarde")
     motivation_level = models.IntegerField(
         validators = [MinValueValidator(1),   MaxValueValidator(20)],
         help_text = "Nivel de motivacion de 1 ha 10"
@@ -59,6 +59,91 @@ class ModelUser(models.Model):
         return f"{self.user.username} - {self.get_user_type_display()}"
 
 
+class UserMood(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='moods')
+    date = models.DateField(db_index=True)
+    energy_level = models.IntegerField(
+    validators=[MinValueValidator(1), MaxValueValidator(10)]
+    )
+    stress_level = models.IntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(10)]
+    )
+    mood_notes=models.TextField(blank=True ,help_text="Como estuvo tu habito hoy")
+    sleep_hours = models.DecimalField(
+        max_digits=3, decimal_places=1, null=True, blank=True,
+        help_text= "Horas de sueño de la noche anterior"
+    )
+    stress_trigger=models.CharField(
+        max_length=120,
+        choices=ModelUser.FOCUS_AREA_CHOICES,
+        blank=True,
+        help_text="¿Que area te esta generando estrés hoy?"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class meta:
+        unique_together = ['user','date']
+        ordering = ['-date']
+        indexes = [
+            models.Index(fields=['user','-date']),
+            models.Index(fields=['energy_level','sterss_level'])
+        ]
+
+    def __str__(self):
+        return (f"{self.user.username} - {self.date}"
+                f"Energia {self.energy_level} - Estres {self.stress_level}")
+
+
+
+class IAInteraction(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='ia_conversations')
+    PROMPT_TYPES = [
+        ('daily_advice', 'Consejo Diario'),
+        ('habit_suggestion', 'Sugerencia de Habito'),
+        ('motivation','Motivacion'),
+        ('analysis','Analisis de Progreso'),
+        ('troubleshooting','Solucion de Problemas'),
+        ('goal_setting', 'Definicion de Objetivos')
+    ]
+    prompt_type = models.CharField(max_length=100, choices = PROMPT_TYPES,db_index=True)
+    input_data=models.JSONField(
+        default=dict
+    )
+    ai_response = models.TextField()
+
+    FEEDBACK_CHOICES =[
+        ('helpful', '👍 Útil'),
+        ('not_helpful', '👎 No útil'),
+        ('neutral', '😐 Neutral'),
+        (None, 'Sin calificar'),
+    ]
+    user_feedback = models.CharField(
+        max_length=100,
+        choices=FEEDBACK_CHOICES,
+        null=True,
+        blank=True
+    )
+    feedback_comment = models.TextField(
+        blank=True,
+        help_text="Explica porque..."
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user','-created_at']),
+            models.Index(fields=['prompt_type','user_feedback']),
+        ]
+
+    def __str__(self):
+        feedback = self.user_feedback or 'sin evaluar'
+        return (f"{self.user.username}"
+                f"{self.prompt_type}"
+                f"Feedback dado por el usuario: ({feedback})")
+
+
+
 class Habits(models.Model):
     FREQUENCY_CHOICES = [
         ('Daily', 'Diario'),
@@ -70,12 +155,12 @@ class Habits(models.Model):
         ('Low','Baja'),
         ('Medium','Media'),
         ('High','Alta'),
-        ('Very high', 'Muy alta')
+        ('Very high', 'Muy alta'),
     ]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="habits")
     title = models.CharField(max_length=260)
-    description = models.TextField(black=True)
+    description = models.TextField(blank=True)
     frequency = models.CharField(max_length=20, choices=FREQUENCY_CHOICES)
     priority = models.TextField(choices=PRIORITY_CHOICES, help_text= "Prioridad del habito")
     target_minutes = models.PositiveIntegerField(
@@ -87,7 +172,7 @@ class Habits(models.Model):
 
 
     class Meta:
-        user_index = [
+        indexes = [
             models.Index(fields=['user', 'is_active', 'title', 'created_at'])
         ]
 
@@ -102,7 +187,7 @@ class Habit_execution(models.Model):
         ('Completed', 'Completada'),
         ('Stand by', 'Pendiente'),
         ('Skipped', 'Omitida'),
-        ('Not executed', 'Sin ejecutarse')
+        ('Not executed', 'Sin ejecutarse'),
     ]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="ModelUser_executions")
