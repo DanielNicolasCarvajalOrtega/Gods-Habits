@@ -16,13 +16,14 @@ class HabitService:
     ##MAX_ACTIVE_HABITS_PREMIUM = 50
 
     @staticmethod
-    def get_user_habits(user:User, is_active: Optional[bool] = True) -> List[Habits]:
+    def get_user_habits(user:User,
+                        is_active: Optional[bool] = True) -> List[Habits]:
         query_set = Habits.objects.filter(user=user)
 
         if is_active is not None:
             query_set = query_set.filter(active=is_active)
 
-        return query_set.select_related('user').prefecth_related('executions')
+        return query_set.select_related('user').prefetch_related('execution')
 
     @staticmethod
     def get_habit_by_id(habit_id: int, user:User) -> Optional[Habits]:
@@ -44,9 +45,7 @@ class HabitService:
             return f"Error: {err}"
 
         try:
-
             habit = Habits.objects.create(user=user, **validated_data)
-
             if habit.frequency == 'Daily':
                 Habit_execution.objects.create(
                     user=user,
@@ -87,7 +86,6 @@ class HabitService:
 
         else:
             habit.delete()
-
         return True
 
 
@@ -101,9 +99,7 @@ class HabitService:
 
         habit.is_active = not habit.is_active
         habit.save()
-
         return habit
-
 
     @staticmethod
     @transaction.atomic
@@ -112,8 +108,7 @@ class HabitService:
             user:User,
             duration_minutes:Optional[int] = None,
             notes: str = '',
-            execution_date: Optional[date] = None
-    )-> Habit_execution:
+            execution_date: Optional[date] = None )-> Habit_execution:
 
         habit = HabitService.get_habit_by_id(habit_id, user)
 
@@ -142,9 +137,8 @@ class HabitService:
             execution.duration_minutes = duration_minutes or habit.target_minutes
             execution.notes = notes
             execution.save()
-
-
         return execution
+
 
     @staticmethod
     @transaction.atomic
@@ -234,8 +228,8 @@ class HabitService:
     def get_user_statistics(user: User)-> Dict:
 
         qs = Habits.objects.filter(user=user)
-        active_habits = Habits.objects.filter(
-            user=user, is_active=True)
+        # active_habits = Habits.objects.filter(
+           # user=user, is_active=True)
 
         agg = qs.aggregate(
             total_active = Count('id', filter=Q(is_active=True)),
@@ -248,10 +242,9 @@ class HabitService:
 
         )
 
-
         return {
-            'total_active_habits': agg['total_active'],
-            'total_inactive_habits': agg['total_inactive'],
+            'total_active': agg['total_active'],
+            'total_inactive': agg['total_inactive'],
             'completion_rate_7rate': HabitService.calculated_completion_rate(user,7),
             'completion_rate_30days': HabitService.calculated_completion_rate(user,30),
             'habits_by_priority': {
@@ -276,7 +269,7 @@ class HabitService:
         exec_qs = Habit_execution.objects.filter(
            user=user,
            habit=OuterRef('pk'),
-           execution_rate = today,
+           execution_date = today,
         ).values('habit','status','id')
 
         habits = (
@@ -308,8 +301,3 @@ class HabitService:
             }
             for h in habits
         ]
-
-
-hebito = HabitService
-
-print(hebito.get_user_statistics)

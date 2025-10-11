@@ -3,6 +3,6 @@ from apps.Habits import views
 
 
 urlpatterns = [
-    path('inicio/' ,views.home_view, name="home_view"),
+    path('inicio/',views.home_view, name="home_view"),
 ]
 

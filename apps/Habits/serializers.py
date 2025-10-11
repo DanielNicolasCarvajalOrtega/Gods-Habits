@@ -59,7 +59,6 @@ class HabitListSerializer(serializers.ModelSerializer):
                   'is_active'
                   ]
 
-
 class HabitCreateSerializer(serializers.ModelSerializer):
     """CREACION DE HABITOS"""
 
@@ -93,9 +92,22 @@ class HabitExecutionSerializer(serializers.ModelSerializer):
             'created_at'
         ]
 
-        read_only_fields = ['id', 'habit_title', 'created_at', 'execution_date']
+        read_only_fields = ['id',
+                            'habit_title',
+                            'created_at',
+                            'execution_date']
 
 
-class MarkCompleteSerializer(serializers.Serializer):
-    duration_minutes = serializers.IntegerField(required=False, min_value=1)
-    notes = serializers.CharField(required=False, allow_blank=True, max_length=520)
+class HabitMarkCompleteSerializer(serializers.Serializer):
+    duration_minutes = serializers.IntegerField(
+        required=False,
+        min_value = 1,
+        max_value=180,
+        help_text="Duracion en minutos"
+    )
+    notes = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=500,
+        help_text="Notas finales"
+    )

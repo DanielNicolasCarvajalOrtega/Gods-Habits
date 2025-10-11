@@ -16,5 +16,3 @@ response= client.models.generate_content(
     contents='Tengo un habito en mi calentario de habitos que es hacer presbanca en mi gimancio cada 3 dia a la semana'
              'mido 1.80metros y peso 71kg'
 )
-
-print(response.text)

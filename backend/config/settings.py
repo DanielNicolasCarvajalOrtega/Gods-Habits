@@ -1,6 +1,5 @@
 from pathlib import Path
 import os
-
 from django.conf.global_settings import LANGUAGES
 from dotenv import load_dotenv
 from django.utils.translation import gettext_lazy as idiom
@@ -8,8 +7,6 @@ from django.utils.translation import gettext_lazy as idiom
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 load_dotenv()
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('SECRET_KEY')
@@ -57,6 +54,7 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'apps.Habits.urls'
 
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -73,7 +71,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'config.wsgi.application'
+WSGI_APPLICATION = 'backend.config.wsgi.application'
 
 
 DATABASES = {
