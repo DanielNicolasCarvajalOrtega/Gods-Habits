@@ -1,24 +1,28 @@
 from django.contrib.auth.models import User
-from apps.Habits.services import HabitService
+from apps.Users.models import ModelUser
 
-user, create = User.objects.get_or_create(
-    username='Marcelo Spped',
-    defaults={
-        'email': 'merce24@gmail.com'
-    }
+user = User.objects.create_user(
+    username = "Kaila",
+    email = "danielnicolas@gmail.com",
+    password="yuyu2526"
 )
 
-habits = HabitService.create_habit(
-    user = user,
-    validated_data= {
-        'title': "Correr por la mañana 20km",
-        'description': 'Vamos a ir desde curico a zapallar corriendo'
-                       'durante 20km para parar y tomar un descanso en zapallar y volver en 2 '
-                       'horas a curico.',
-        'frequency': 'Weekly',
-        'priority': 'Medium',
-        'target_minutes':120
-    }
+print(f"Usuario creado {user}")
+
+profile = ModelUser.objects.create(
+    user= user,
+    user_type = "Beginner",
+    first_focus_area='Fitness',
+    daily_time_availability="medium",
+    motivation_level=6,
+    experience_level_user= 2,
+    user_objective="Bajar 5kg en 1 mes para poder"
+                   "entrar a correr mas kilometros."
 )
 
-print(f"Habito creado:\n {habits} ")
+profile_recovery = ModelUser.objects.get(user=user)
+print(f"Perfil recuperado: {profile_recovery}")
+print(f"Username: {profile_recovery.user.username}")
+print(f"Tipo: {profile_recovery.get_user_type_display()}")
+print(f"Primera area de foco: {profile_recovery.first_focus_area}")
+print(f"Objetivo del usuario: {profile_recovery.user_objective}")

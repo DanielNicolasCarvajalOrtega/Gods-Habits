@@ -1,7 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator, MaxValueValidator
-from django.utils import timezone
+
 
 
 class ModelUser(models.Model):
@@ -39,7 +39,7 @@ class ModelUser(models.Model):
     user_type = models.CharField(max_length=70, choices=USER_TYPE_CHOICHES)
     created_at = models.DateTimeField(auto_now_add=True)
     first_focus_area = models.CharField(max_length=100, choices=FOCUS_AREA_CHOICES)
-    secondary_focus_area = models.JSONField(default=list, blank=True, help_text = "Otras areas de foco")
+    secondary_focus_area = models.JSONField(default=list, blank=True, choices=FOCUS_AREA_CHOICES,help_text = "Otras areas de foco")
     daily_time_availability = models.CharField(max_length=100, choices = TIME_AVAILABILITY_CHOICES)
     preferred_morning_time = models.TimeField(null=True, blank=True, help_text = "Horas preferidas por la mañana")
     preferred_evening_time = models.TimeField(null=True, blank=True, help_text = "Horas preferidas por la tarde")

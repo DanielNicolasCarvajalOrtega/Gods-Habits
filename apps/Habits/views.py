@@ -4,14 +4,13 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.status import HTTP_201_CREATED
-from .models import Habits, Habit_execution
+from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny
+from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.serializers import TokenObtainSerializer
 from .serializers import *
 from .services import HabitService
-from ..IA_Coach.services.ia_services import response
 
-
-def home_view(request):
-    return render(request, 'index.html')
 
 
 class HabitViewSet(viewsets.ModelViewSet):
@@ -263,7 +262,7 @@ class HabitViewSet(viewsets.ModelViewSet):
         )
         return Response(statistics)
 
-    @action(detail=False, method=['get'])
+    @action(detail=False, methods=['get'])
     def habit_pending_today(self, request):
         habits_today = HabitService.get_habit_for_today(request.user)
         return Response(habits_today)
@@ -272,3 +271,16 @@ class HabitViewSet(viewsets.ModelViewSet):
     def habit_user_streak(self,request,pk=None):
         habits_streak= HabitService.calculate_habit_streak(pk, request.user)
         return Response({'streak_days': habits_streak})
+
+class CustomTokenObtainPairSerializer(TokenObtainSerializer):
+    @classmethod
+    def get_token(cls,user):
+        token = super().get_token(user)
+        token['username'] = user.username
+        token['emial'] = user.get_email_field_name()
+
+        return token
+
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializers = CustomTokenObtainPairSerializer

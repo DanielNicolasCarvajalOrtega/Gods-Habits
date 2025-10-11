@@ -1,8 +1,14 @@
-from django.urls import path
-from apps.Habits import views
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import HabitViewSet
 
+
+router= DefaultRouter()
+router.register(r'',HabitViewSet, basename='habit')
 
 urlpatterns = [
-    path('inicio/',views.home_view, name="home_view"),
+    path('',include(router.urls)),
+
+
 ]
 

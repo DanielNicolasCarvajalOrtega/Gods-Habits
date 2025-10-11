@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from django.utils.translation import gettext_lazy as idiom
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
+from datetime import timedelta
 
 load_dotenv()
 # SECURITY WARNING: keep the secret key used in production secret!
@@ -52,7 +52,7 @@ MIDDLEWARE = [
 ]
 
 
-ROOT_URLCONF = 'apps.Habits.urls'
+ROOT_URLCONF = 'backend.config.urls'
 
 
 TEMPLATES = [
@@ -70,6 +70,34 @@ TEMPLATES = [
         },
     },
 ]
+
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=2),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_AFTER_ROTATION':False,
+    'BLACKLIST_AFTER_ROTATION': False,
+    'UPDATE_LAST_LOGIN': False,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'VERIFYING_KEY':None,
+    'AUDIENCE': None,
+    'ISSUER': None,
+    'JTI_CLAIM': 'jti',
+    'TOKEN_TYPE_CLAIM': 'token_type',
+
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_HEARDER_NAME': 'HTTP_AUTORIZATION',
+    'USER_ID_FIELD':'id',
+    'USER_ID_CLAIM':'user_id',
+    'USER_AUTHENTICATION_RULE': 'rest_framework_simplejwt.authentication.default_user_authentication_rule',
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken'),
+    'TOKEN_USER_CLASS': 'rest_framework_simplejwt.models.TokenUser',
+    'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
+    'SLIDING_TOKEN_LIFETIME': timedelta(minutes=5),
+    'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1)
+    }
+
 
 WSGI_APPLICATION = 'backend.config.wsgi.application'
 
