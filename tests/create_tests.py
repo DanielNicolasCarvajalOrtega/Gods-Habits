@@ -2,8 +2,8 @@ from django.contrib.auth.models import User
 from apps.Users.models import ModelUser
 
 user = User.objects.create_user(
-    username = "Kaila",
-    email = "danielnicolas@gmail.com",
+    username = "MarceO23",
+    email = "marcelo.ortiz23@gmail.com",
     password="yuyu2526"
 )
 
@@ -11,13 +11,13 @@ print(f"Usuario creado {user}")
 
 profile = ModelUser.objects.create(
     user= user,
-    user_type = "Beginner",
-    first_focus_area='Fitness',
-    daily_time_availability="medium",
-    motivation_level=6,
-    experience_level_user= 2,
-    user_objective="Bajar 5kg en 1 mes para poder"
-                   "entrar a correr mas kilometros."
+    user_type = "Advanced",
+    first_focus_area='Learning',
+    daily_time_availability="high",
+    motivation_level=20,
+    experience_level_user= 4,
+    user_objective="Debo aprender a usar las condiciones en javascript"
+                   "para completar una parte de mis programas echos en javascript"
 )
 
 profile_recovery = ModelUser.objects.get(user=user)
