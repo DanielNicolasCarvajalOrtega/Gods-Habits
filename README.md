@@ -16,4 +16,4 @@ El modelamiento se realizó considerando las entidades principales: **usuarios, 
 
 ## 📊 Diagrama de la Base de Datos
 
-![Database Schema](docs/imgs/db_schema_habits.png)
+![Database Schema](docs/imgs/models-export.png)
