@@ -21,9 +21,9 @@ class HabitService:
         query_set = Habits.objects.filter(user=user)
 
         if is_active is not None:
-            query_set = query_set.filter(active=is_active)
+            query_set = query_set.filter(is_active=is_active)
 
-        return query_set.select_related('user').prefetch_related('execution')
+        return query_set.select_related('user').prefetch_related('habits_executions')
 
     @staticmethod
     def get_habit_by_id(habit_id: int, user:User) -> Optional[Habits]:
@@ -171,7 +171,6 @@ class HabitService:
             execution.status = 'Skipped'
             execution.notes = notes
             execution.save()
-
         return execution
 
     @staticmethod
@@ -182,7 +181,7 @@ class HabitService:
         start_date = today - timedelta(days=days)
         executions = Habit_execution.objects.filter(
             user=user,
-            execution_date_gte= start_date,
+            execution_date__gte= start_date,
             execution_date__lte=today
         )
 
@@ -233,7 +232,7 @@ class HabitService:
 
         agg = qs.aggregate(
             total_active = Count('id', filter=Q(is_active=True)),
-            tota_inactive=Count('id',filter=Q(is_active=False)),
+            total_inactive=Count('id',filter=Q(is_active=False)),
             high=Count('id', filter=Q(is_active=True, priority='High')),
             medium = Count('id',filter=Q(is_active=True, priority='Medium')),
             low=Count('id', filter=Q(is_active=True, priority="Low")),
@@ -245,16 +244,17 @@ class HabitService:
         return {
             'total_active': agg['total_active'],
             'total_inactive': agg['total_inactive'],
-            'completion_rate_7rate': HabitService.calculated_completion_rate(user,7),
+            'completion_rate_7days': HabitService.calculated_completion_rate(user,7),
             'completion_rate_30days': HabitService.calculated_completion_rate(user,30),
             'habits_by_priority': {
                 'high': agg['high'],
-                'medium': agg['medium'],
-                'low': agg['low'],
+                'medium': agg['Medium'],
+                'low': agg['Low'],
             },
             'habits_by_frequency':{
-                'daily': agg['daily'],
-                'weekly': agg['weekly'],
+                'daily': agg['Daily'],
+                'weekly': agg['Weekly'],
+
             }
         }
 
