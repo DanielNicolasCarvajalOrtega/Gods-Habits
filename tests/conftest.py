@@ -2,6 +2,8 @@ import os
 import pytest
 from django.conf import settings
 from django.utils import timezone
+from django.contrib.auth.models import User
+from rest_framework.test import APIClient
 
 
 @pytest.fixture(autouse=True, scope="session")
