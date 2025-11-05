@@ -7,19 +7,17 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainSerializer
 from .serializers import *
 from .services import HabitService
-from datetime import timezone
-
+from datetime import datetime
 
 
 class HabitViewSet(viewsets.ModelViewSet):
     queryset = Habits.objects.all()
+    serializers_class = HabitSerializers
     permission_classes = [IsAuthenticated]
-
 
     def get_queryset(self):
         """Solo usuarios autenticados"""
         return HabitService.get_user_habits(self.request.user)
-
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
@@ -160,12 +158,12 @@ class HabitViewSet(viewsets.ModelViewSet):
             )
 
     @action(detail=True, methods=['post'], url_path='mark_habit_user_complete')
-    def mark_habit_user_complete(self,request):
+    def mark_habit_user_complete(self,request,pk=None):
             habit = self.get_object()
-            serializer = self.get_serializer(data=request.data)
+            serializer = HabitExecutionInputSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
 
-            today = timezone.now().date()
+            today = datetime.now().date()
             duration_minutes = serializer.validated_data.get('duration_minutes', habit.target_minutes)
             notes = serializer.validated_data.get('notes', '')
 
@@ -233,23 +231,45 @@ class HabitViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-    @action(detail=True,methods=['post'], url_path="statistics")
-    def habit_user_statistics(self,request, pk=None):
-        statistics = HabitService.get_user_statistics(
-            request.user
-        )
-        return Response(statistics, status=status.HTTP_200_OK)
+    @action(detail=False,methods=['get'], url_path="statistics")
+    def statistics(self,request):
+        try:
+            statistics = HabitService.get_user_statistics(request.user)
+            return Response(statistics, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {'error': 'Error al obtener estadísticas', 'detail': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
-    @action(detail=True, methods=['get'], url_path="pending_today")
-    def habit_pending_today(self, request):
-        habits_today = HabitService.get_habit_for_today(request.user)
-        return Response(habits_today, status=status.HTTP_200_OK)
+    @action(detail=False, methods=['get'], url_path="pending-today")
+    def pending_today(self, request):
+        try:
+            habits_today = HabitService.get_habit_for_today(request.user)
+            return Response(habits_today, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {'error': 'Error al obtener hábitos pendientes', 'detail': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=['get'], url_path='habit-statistics')
+    def habit_statistics(self, request, pk=None):
+        """GET /api/habits/{id}/habit-statistics/"""
+        habit = self.get_object()
+        try:
+            statistics = HabitService.get_habit_specific_statistics(habit, request.user)
+            return Response(statistics, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {'error': 'Error al obtener estadísticas del hábito'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=True, methods=['get'])
     def habit_user_streak(self,request,pk=None):
         habits_streak= HabitService.calculate_habit_streak(pk, request.user)
         return Response({'streak_days': habits_streak})
-
 
 
 class CustomTokenObtainPairSerializer(TokenObtainSerializer):
@@ -258,7 +278,6 @@ class CustomTokenObtainPairSerializer(TokenObtainSerializer):
         token = super().get_token(user)
         token['username'] = user.username
         token['emial'] = user.get_email_field_name()
-
         return token
 
 

@@ -36,14 +36,6 @@ class HabitService:
     @staticmethod
     @transaction.atomic
     def create_habit(user:User, validated_data:Dict)-> Habits:
-        active_count = Habits.objects.filter(user=user, is_active = True).count()
-
-        try:
-            if active_count <=0:
-                return f"No tienen ningun Habito preparado o agendado"
-        except ValueError as err:
-            return f"Error: {err}"
-
         try:
             habit = Habits.objects.create(user=user, **validated_data)
             if habit.frequency == 'Daily':
@@ -51,7 +43,7 @@ class HabitService:
                     user=user,
                     habit=habit,
                     execution_date = timezone.now().date(),
-                    status='Stand by'
+                    status='Not executed'
                 )
                 return habit
 
@@ -100,44 +92,6 @@ class HabitService:
         habit.is_active = not habit.is_active
         habit.save()
         return habit
-
-    @staticmethod
-    @transaction.atomic
-    def mark_habit_complete(
-            habit_id:int,
-            user:User,
-            duration_minutes:Optional[int] = None,
-            notes: str = '',
-            execution_date: Optional[date] = None )-> Habit_execution:
-
-        habit = HabitService.get_habit_by_id(habit_id, user)
-
-        if not habit:
-            raise ValueError("Habito no encontrado")
-
-        if not habit.is_active:
-            raise ValueError("No puedes completar un habito inactivo")
-
-        if execution_date is None:
-            execution_date = timezone.now().date()
-
-        execution, created = Habit_execution.objects.get_or_create(
-            user=user,
-            habit=habit,
-            execution_date=execution_date,
-            defaults={
-                'status':'Completed',
-                'duration_minutes': duration_minutes or habit.target_minutes,
-                'notes': notes
-            }
-        )
-
-        if not created:
-            execution.status = 'Completed'
-            execution.duration_minutes = duration_minutes or habit.target_minutes
-            execution.notes = notes
-            execution.save()
-        return execution
 
 
     @staticmethod
@@ -212,7 +166,7 @@ class HabitService:
                     habit = habit,
                     user= user,
                     execution_date= current_date,
-                    etatus = 'Completed'
+                    status = 'Completed'
 
                 )
                 streak +=1
@@ -248,56 +202,52 @@ class HabitService:
             'completion_rate_30days': HabitService.calculated_completion_rate(user,30),
             'habits_by_priority': {
                 'high': agg['high'],
-                'medium': agg['Medium'],
-                'low': agg['Low'],
+                'medium': agg['medium'],
+                'low': agg['low'],
             },
             'habits_by_frequency':{
-                'daily': agg['Daily'],
-                'weekly': agg['Weekly'],
+                'daily': agg['daily'],
+                'weekly': agg['weekly'],
 
             }
         }
 
     @staticmethod
-    def get_habit_for_today(user:User) -> List[Dict]:
-        """Obtener habitos pendientes
-           Completados en dia de hoy"""
+    def get_habit_for_today(user: User) -> List[Dict]:
+        """Obtener hábitos pendientes y completados en día de hoy"""
         today = timezone.now().date()
 
-        """Subquery para traer status/id de las ejecuciones de 
-            de habitos el dia de hoy"""
+        # Subquery para traer status/id de las ejecuciones de hábitos el día de hoy
         exec_qs = Habit_execution.objects.filter(
-           user=user,
-           habit=OuterRef('pk'),
-           execution_date = today,
-        ).values('habit','status','id')
+            user=user,
+            habit=OuterRef('pk'),
+            execution_date=today,
+        )
 
         habits = (
             Habits.objects.filter(
                 user=user, is_active=True, frequency='Daily')
-            .only('id','title','target_minutes','priority')
+            .only('id', 'title', 'target_minutes', 'priority')
             .annotate(
                 status_today=Coalesce(
-                    Subquery(exec_qs.values('status')[:1]),
+                    Subquery(exec_qs.values('status')[:1]),  # ✅ status
                     Value('Pending')
                 ),
                 execution_id=Coalesce(
-                    Subquery(exec_qs.values('status')[:1]),
+                    Subquery(exec_qs.values('id')[:1]),  # ✅ CORREGIDO: 'id' no 'status'
                     Value(None, output_field=IntegerField())
                 )
-
-            ).values('id','title','target_minutes','priority','status_today','execution_id')
+            ).values('id', 'title', 'target_minutes', 'priority', 'status_today', 'execution_id')
         )
-
 
         return [
             {
-                'Habit id':h['id'],
-                'Title':h['title'],
-                'Target minutes':h['target_minutes'],
-                'Priority':h['priority'],
-                'Status today': h['status_today'],
-                'Execution id': h['execution_id'],
+                'habit_id': h['id'],  # ✅ Mejor sin espacios en keys
+                'title': h['title'],
+                'target_minutes': h['target_minutes'],
+                'priority': h['priority'],
+                'status_today': h['status_today'],
+                'execution_id': h['execution_id'],
             }
             for h in habits
         ]

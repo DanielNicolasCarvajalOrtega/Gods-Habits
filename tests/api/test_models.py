@@ -5,7 +5,7 @@ TOKEN_REFRESH_URL = "/api/token/refresh/"
 TOKEN_VERIFY_URL = "/api/token/verify/"
 
 import pytest
-from datetime import timedelta, time
+from datetime import timedelta
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 
@@ -120,3 +120,5 @@ def test_refresh_works_and_access_expires(api_client, monkeypatch):
     )
     assert refresh.status_code == 200, getattr(refresh,'data', refresh.content)
     assert "access" in refresh.data
+
+

@@ -150,26 +150,21 @@ class HabitUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Ya tienes un hábito con este título.")
         return value
 
+# EL USUARIO ENVIA --
+class HabitExecutionInputSerializer(serializers.Serializer):
+    duration_minutes = serializers.IntegerField(required=False)
+    notes = serializers.CharField(required=False, allow_blank=True, default='')
+
+# LO QUE SE DEVUELVE --
 class HabitExecutionSerializer(serializers.ModelSerializer):
     habit_title = serializers.CharField(source='habit.title', read_only=True)
 
     class Meta:
         model = Habit_execution
-        fields = [
-            'id',
-            'habit_title',
-            'habit',
-            'execution_date',
-            'duration_minutes',
-            'status',
-            'notes',
-            'created_at'
-        ]
+        fields = ['id', 'habit', 'habit_title', 'user', 'execution_date',
+                  'duration_minutes', 'notes', 'status', 'created_at']
+        read_only_fields = ['id', 'habit', 'user', 'execution_date', 'status', 'created_at']
 
-        read_only_fields = ['id',
-                            'habit_title',
-                            'created_at',
-                            'execution_date']
 
 
 class HabitMarkCompleteSerializer(serializers.Serializer):

@@ -1,7 +1,5 @@
 import pytest
 from django.contrib.auth.models import User
-from django.utils import timezone
-from apps.Habits.models import Habits
 from rest_framework.test import APIClient
 
 
@@ -84,6 +82,9 @@ def test_register_today_without_duplicating(client_auth):
         format="json"
     )
 
+    print(f"\nStatus: {request_2.status_code}")
+    print(f"Response: {request_2.json()}")
+
     assert request_2.status_code in (200, 201)
     response_2 = request_2.json()
 
@@ -106,7 +107,6 @@ def test_register_today_without_duplicating(client_auth):
     # Obtener el ID del objeto execution
     execution_id_2 = response_3["execution"]["id"]
 
-
     # Verificar que NO se creó una nueva ejecución (mismo ID)
     assert execution_id_2 == execution_id_1, "Debería actualizar la misma ejecución, no crear una nueva"
 
@@ -117,28 +117,68 @@ def test_register_today_without_duplicating(client_auth):
     #Verificar el mensaje correcto
     assert response_3["message"] == "Ejecución actualizada"
 
+
 def test_statistics_and_pending(client_auth):
-    request_stats= client_auth.get(f"/api/habits/habit_user_statistics/")
-    assert request_stats.status_code == 200
-    status = request_stats.json()
+    response = client_auth.get(f"/api/habits/statistics/")
+    assert response.status_code == 200
+    data = response.json()
 
-    for colum in [
-        "total_active", "total_inactive",
-        "completion_rate_7days", "completion_rate_30days",
-        "habits_by_priority", "habits_by_frequency",
-    ]:
-        assert colum in status
+    if response.status_code != 200:
+        print(f"status --> {response.status_code} ")
+        print(f"Error --> {response.json()}")
 
-    request_pending = client_auth.get(f"/api/habits/habit_pending_today/")
-    assert request_pending.status_code == 200
-    assert isinstance(request_pending.json(), list)
+    assert 'total_active' in data
+    assert 'total_inactive' in data
+    assert 'completion_rate_7days' in data
+    assert 'completion_rate_30days' in data
+    assert 'habits_by_priority' in data
+    assert 'habits_by_frequency' in data
+
+    assert 'high' in data['habits_by_priority']
+    assert 'medium' in data['habits_by_priority']
+    assert 'low' in data['habits_by_priority']
+
+    client_auth.post("/api/habits/", {
+        "title": "Ejercicio",
+        "description": "Test Habit",
+        "frequency": "Daily",
+        "priority": "High",
+        "target_minutes": 30,
+    }, format="json")
+
+    response = client_auth.get("/api/habits/pending-today/")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+
+
+def test_combined_statistics_and_pending(client_auth):
+    for i in range(3):
+        client_auth.post("/api/habits/", {
+            "title": f"Hábito {i}",
+            "description":"Este es un test para cualquiera",
+            "frequency": "Daily",
+            "priority": "Medium",
+            "target_minutes": 60,
+        }, format="json")
+
+    # Obtener estadísticas
+    stats = client_auth.get("/api/habits/statistics/")
+    assert stats.status_code == 200
+
+    # Obtener pendientes
+    pending = client_auth.get("/api/habits/pending-today/")
+    assert pending.status_code == 200
+    assert len(pending.json()) == 3  # Todos están pendientes
+
 
 def test_delete_habits(client_auth):
     request = client_auth.post("/api/habits/",
                                {
                                    "title": "Meditar",
                                    "description": "Meditar 20 minutos todos los dias para "
-                                                  "sentirme mejor mentalmente y botar estres",
+                                              "sentirme mejor mentalmente y botar estres",
                                    "frequency": "Daily",
                                    "priority": "High",
                                    "target_minutes": 20,
