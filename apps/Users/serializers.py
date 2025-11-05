@@ -1,6 +1,30 @@
 from rest_framework import serializers
-from django.contrib.auth.models import User
+from rest_framework.validators import UniqueValidator
 from apps.Habits.models import Habits, Habit_execution
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
+class RegisterUserSerializers(serializers.ModelSerializer):
+    email = serializers.EmailField(
+        required=True,
+        validators= [
+            UniqueValidator
+                (
+            User.objects.all(),
+            lookup='iexact'
+            )
+        ]
+    )
+    password = serializers.CharField(write_only=True, min_length=10)
+
+    class Meta:
+        model = User
+        fields = ('username', 'email', 'password')
+
+    def create(self, validated_data):
+        return User.objects.create_user(**validated_data)
+
 
 
 class HabitSerializers(serializers.ModelSerializer):

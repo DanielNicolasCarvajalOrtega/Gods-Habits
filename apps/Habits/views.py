@@ -1,33 +1,26 @@
-from django.shortcuts import render
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.status import HTTP_201_CREATED
-from rest_framework.views import APIView
-from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainSerializer
 from .serializers import *
 from .services import HabitService
-
+from datetime import datetime
 
 
 class HabitViewSet(viewsets.ModelViewSet):
-
+    queryset = Habits.objects.all()
+    serializers_class = HabitSerializers
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         """Solo usuarios autenticados"""
         return HabitService.get_user_habits(self.request.user)
 
-    def get_serializer_class(self):
-        if self.action == 'list':
-            return HabitListSerializer
-        elif self.action == 'create':
-            return HabitCreateSerializer
-        return HabitSerializers
-
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
 
     def list_user_habits(self, request):
         habit_active = request.query_params.get('is_active','true')
@@ -38,6 +31,16 @@ class HabitViewSet(viewsets.ModelViewSet):
 
         return Response(serializers.data)
 
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return HabitCreateSerializer
+        elif self.action in ['update', 'partial_update']:
+            return HabitUpdateSerializer
+        elif self.action == 'list':
+            return HabitListSerializer
+        elif self.action == 'mark_complete':
+            return HabitMarkCompleteSerializer
+        return HabitSerializers
 
     def create_user_habits(self,request):
         serializers = self.get_serializer(date=request.data, context={'request': request})
@@ -154,58 +157,32 @@ class HabitViewSet(viewsets.ModelViewSet):
                 status= status.HTTP_404_NOT_FOUND
             )
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'], url_path='mark_habit_user_complete')
     def mark_habit_user_complete(self,request,pk=None):
-        try:
-            habits = Habits.objects.get(id=pk, user=request.user)
-        except Habits.DoesNotExist:
-            return Response({
-                'error': 'Habito no encontrado'
-            },
-                status= status.HTTP_404_NOT_FOUND
-            )
+            habit = self.get_object()
+            serializer = HabitExecutionInputSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
 
-        if not habits.is_active:
-            return Response({
-                'error': 'No puedes completar un habito inactivo'
-            },
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            today = datetime.now().date()
+            duration_minutes = serializer.validated_data.get('duration_minutes', habit.target_minutes)
+            notes = serializer.validated_data.get('notes', '')
 
-        serializers = HabitMarkCompleteSerializer(
-            data = request.data,
-            context={
-                'request': request,
-                'habit_id' : pk
-            }
-        )
-        serializers.is_valid(raise_exception=True)
-
-        try:
-            execution = HabitService.mark_habit_complete(
-                habit_id = pk,
+            execution, created = Habit_execution.objects.update_or_create(
+                habit=habit,
                 user=request.user,
-                duration_minutes= serializers.validated_data.get('duration_minutes'),
-                notes = serializers.validated_data.get('notes','')
-            )
-            return Response(
-                HabitExecutionSerializer(execution).data,
-                status=status.HTTP_200_OK
+                execution_date=today,
+                defaults={
+                    'duration_minutes': duration_minutes,
+                    'status': 'Completed',
+                    'notes': notes
+                }
             )
 
-        except ValueError as err:
-            Response(
-                {
-                    'error': str(err)
-                },
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        except Exception as err:
+            message = 'Hábito marcado como completado' if created else 'Ejecución actualizada'
             return Response({
-                'error': 'Error al completar el habito', str:err
-            },
-            status = status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+                'message': message,
+                'execution': HabitExecutionSerializer(execution).data
+            }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 
     @action(detail=True, methods=['post'])
@@ -254,23 +231,46 @@ class HabitViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+    @action(detail=False,methods=['get'], url_path="statistics")
+    def statistics(self,request):
+        try:
+            statistics = HabitService.get_user_statistics(request.user)
+            return Response(statistics, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {'error': 'Error al obtener estadísticas', 'detail': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
-    @action(detail=False,methods=['get'] )
-    def habit_user_statistics(self,request):
-        statistics = HabitService.get_user_statistics(
-            request.user
-        )
-        return Response(statistics)
+    @action(detail=False, methods=['get'], url_path="pending-today")
+    def pending_today(self, request):
+        try:
+            habits_today = HabitService.get_habit_for_today(request.user)
+            return Response(habits_today, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {'error': 'Error al obtener hábitos pendientes', 'detail': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
-    @action(detail=False, methods=['get'])
-    def habit_pending_today(self, request):
-        habits_today = HabitService.get_habit_for_today(request.user)
-        return Response(habits_today)
+    @action(detail=True, methods=['get'], url_path='habit-statistics')
+    def habit_statistics(self, request, pk=None):
+        """GET /api/habits/{id}/habit-statistics/"""
+        habit = self.get_object()
+        try:
+            statistics = HabitService.get_habit_specific_statistics(habit, request.user)
+            return Response(statistics, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {'error': 'Error al obtener estadísticas del hábito'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=True, methods=['get'])
     def habit_user_streak(self,request,pk=None):
         habits_streak= HabitService.calculate_habit_streak(pk, request.user)
         return Response({'streak_days': habits_streak})
+
 
 class CustomTokenObtainPairSerializer(TokenObtainSerializer):
     @classmethod
@@ -278,7 +278,6 @@ class CustomTokenObtainPairSerializer(TokenObtainSerializer):
         token = super().get_token(user)
         token['username'] = user.username
         token['emial'] = user.get_email_field_name()
-
         return token
 
 

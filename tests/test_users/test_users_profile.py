@@ -3,7 +3,7 @@ from django.contrib.admin import display
 
 @pytest.mark.django_db
 class TestModelUser:
-    def test_model_user_crea_y_se_asocia_a_django_user(self,test_user_factory,test_model_user_factory):
+    def test_model_user_creates_and_associates_with_django_user(self,test_user_factory,test_model_user_factory):
         from apps.Users.models import ModelUser
 
         user = test_user_factory(username='Javiera')
@@ -12,7 +12,7 @@ class TestModelUser:
         assert profile.user_id == user.id
         assert isinstance(profile, ModelUser)
 
-    def test_get_display_choices_si_existen(self, test_user_factory, test_model_user_factory):
+    def test_get_display_choices_if_exist(self, test_user_factory, test_model_user_factory):
         user = test_user_factory(username='Bobinas')
         profile = test_model_user_factory(user)
 

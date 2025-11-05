@@ -17,27 +17,43 @@ class HabitSerializers(serializers.ModelSerializer):
             'description',
             'frequency',
             'target_minutes',
+            'completion_rate',
+            'total_executions',
             'is_active',
             'created_at',
-            'total_executions',
-            'completion_rate',
-
         ]
 
-        read_only_fields = ['id', 'created_at', 'total_executions', 'is_active']
+        read_only_fields = ['id', 'created_at']
+        extra_kwargs = {
+            "title": {"required":True},
+            "frequency": {"required":True},
+            "priority": {"required":True},
+            "target_minutes": {"required":True, "min_value":1},
+        }
+
+    def create(self, validated_data):
+        return super().create(validated_data)
 
     def get_total_executions(self, obj):  # total de ejecuciones
-        return obj.executions.count()
+        return obj.habits_executions.count()
 
     def get_completion_rate(self, obj):  # porcentaje de completado
-        total = obj.executions.count()
+        total = obj.habits_executions.count()
         if total == 0:
             return 0
-        completed = obj.executions.filter(status='Completed').count()
+        completed = obj.habits_executions.filter(status='Completed').count()
         return round((completed / total) * 100, 2)
 
     def validate_title(self, value):  # no se puede repetir el nombre
-        pass
+        value = (value or '').strip()
+        if not value:
+            raise serializers.ValidationError("El titulo es obligatorio")
+
+        user= self.context.get("request").user if self.context.get("request") else None
+        if user and Habits.objects.filter(user=user, title__iexact=value).exists():
+            raise serializers.ValidationError("Ya tienes un habito con este titulo")
+        return value
+
 
     def validate_duration_habit(self, value):  #
         if value < 1:
@@ -58,13 +74,35 @@ class HabitListSerializer(serializers.ModelSerializer):
                   'frequency',
                   'is_active'
                   ]
-
-class HabitCreateSerializer(serializers.ModelSerializer):
-    """CREACION DE HABITOS"""
+class HabitDetailSerializer(serializers.ModelSerializer):
+    total_executions = serializers.SerializerMethodField()
+    completion_rate = serializers.SerializerMethodField()
 
     class Meta:
         model = Habits
         fields = [
+            'id', 'title', 'description', 'priority', 'frequency',
+            'target_minutes', 'is_active', 'created_at',
+            'completion_rate', 'total_executions'
+        ]
+        read_only_fields = ['id', 'created_at']
+
+    def get_total_executions(self, obj):
+        return obj.habits_executions.count()
+
+    def get_completion_rate(self, obj):
+        total = obj.habits_executions.count()
+        if total == 0:
+            return 0
+        completed = obj.habits_executions.filter(status='Completed').count()
+        return round((completed / total) * 100, 2)
+
+class HabitCreateSerializer(serializers.ModelSerializer):
+    """CREACION DE HABITOS"""
+    class Meta:
+        model = Habits
+        fields = [
+            'id',
             'title',
             'description',
             'priority',
@@ -73,29 +111,60 @@ class HabitCreateSerializer(serializers.ModelSerializer):
         ]
 
     def validate_title(self, value):
-        pass
+        value = (value or '').strip()
+        if not value:
+            raise serializers.ValidationError("El título es obligatorio.")
+        user = self.context.get("request").user if self.context.get("request") else None
+        if user and Habits.objects.filter(user=user, title__iexact=value).exists():
+            raise serializers.ValidationError("Ya tienes un hábito con este título.")
+        return value
 
 
+class HabitUpdateSerializer(serializers.ModelSerializer):
+   # SIN HABITOS INCLUIDOS
+
+    class Meta:
+        model = Habits
+        fields = [
+            'title',
+            'description',
+            'priority',
+            'frequency',
+            'target_minutes',
+            'is_active'
+        ]
+
+    def validate_title(self, value):
+        value = (value or '').strip()
+        if not value:
+            raise serializers.ValidationError("El título es obligatorio.")
+
+        user = self.context.get("request").user if self.context.get("request") else None
+        instance = self.instance  # El objeto que se está actualizando
+
+        # Verificar duplicados, excluyendo el objeto actual
+        if user and Habits.objects.filter(
+                user=user,
+                title__iexact=value
+        ).exclude(id=instance.id if instance else None).exists():
+            raise serializers.ValidationError("Ya tienes un hábito con este título.")
+        return value
+
+# EL USUARIO ENVIA --
+class HabitExecutionInputSerializer(serializers.Serializer):
+    duration_minutes = serializers.IntegerField(required=False)
+    notes = serializers.CharField(required=False, allow_blank=True, default='')
+
+# LO QUE SE DEVUELVE --
 class HabitExecutionSerializer(serializers.ModelSerializer):
     habit_title = serializers.CharField(source='habit.title', read_only=True)
 
     class Meta:
         model = Habit_execution
-        fields = [
-            'id',
-            'habit_title',
-            'habit',
-            'execution_date',
-            'duration_minutes',
-            'status',
-            'notes',
-            'created_at'
-        ]
+        fields = ['id', 'habit', 'habit_title', 'user', 'execution_date',
+                  'duration_minutes', 'notes', 'status', 'created_at']
+        read_only_fields = ['id', 'habit', 'user', 'execution_date', 'status', 'created_at']
 
-        read_only_fields = ['id',
-                            'habit_title',
-                            'created_at',
-                            'execution_date']
 
 
 class HabitMarkCompleteSerializer(serializers.Serializer):
