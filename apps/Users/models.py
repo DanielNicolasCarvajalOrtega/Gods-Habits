@@ -5,7 +5,8 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 
 
 class ModelUser(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
+    user = models.OneToOneField(User, on_delete=models.CASCADE,
+             related_name="profile")
 
         # TIPO DE USUARIO
     USER_TYPE_CHOICHES = [

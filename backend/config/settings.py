@@ -10,6 +10,11 @@ from datetime import timedelta
 load_dotenv()
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('SECRET_KEY')
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+
+if not SECRET_KEY or not GEMINI_API_KEY:
+    raise RuntimeError("Faltan SECRET_KEY o falta GEMINI_API_KEY en .env")
+
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -49,7 +54,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-]
+    ]
 
 
 ROOT_URLCONF = 'backend.config.urls'

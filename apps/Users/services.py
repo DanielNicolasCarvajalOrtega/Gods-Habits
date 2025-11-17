@@ -1,3 +1,8 @@
+import os, django
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.config.settings")  # ajusta si tu ruta difiere
+django.setup()
+
+
 from django.contrib.sessions.backends.base import CreateError
 from django.db import transaction
 from django.utils import timezone
@@ -5,15 +10,12 @@ from django.contrib.auth.models import User
 from datetime import timedelta, date
 from typing import Dict, List, Optional
 from apps.Habits.models import Habits, Habit_execution
-from django.db.models import Prefetch, Count, Q, OuterRef, Subquery, Value, IntegerField
-from django.db.models.functions import Coalesce
+from django.db.models import Count, Q
+
 
 
 class HabitService:
     """LOGICA DE NEGOCIOS DE HABITOS"""
-
-    ##MAX_ACTIVE_HABITS_FREE = 10
-    ##MAX_ACTIVE_HABITS_PREMIUM = 50
 
     @staticmethod
     def get_user_habits(user:User, is_active: Optional[bool] = True) -> List[Habits]:

@@ -1,3 +1,5 @@
+from time import timezone
+
 from django.contrib.auth.models import User
 from django.db import models
 from django.core.validators import MinValueValidator , MaxValueValidator
@@ -26,12 +28,12 @@ class UserMood(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
-    class meta:
+    class Meta:
         unique_together = ['user','date']
         ordering = ['-date']
         indexes = [
             models.Index(fields=['user','-date']),
-            models.Index(fields=['energy_level','sterss_level'])
+            models.Index(fields=['energy_level','stress_level'])
         ]
 
     def __str__(self):

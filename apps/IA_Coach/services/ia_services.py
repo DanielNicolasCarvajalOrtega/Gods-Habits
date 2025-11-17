@@ -1,117 +1,164 @@
-# apps/IA_Coach/services/ia_services.py
-
-import os
-from typing import Optional
-
-from dotenv import load_dotenv
+from __future__ import annotations
+import logging
+import re
+from typing import Any, Dict
+from django.core.exceptions import ValidationError
 from google import genai
+from google.genai.types import GenerateContentConfig
+from apps.IA_Coach.services.prompt_builder import build_llm_payload,build_prompt_for_moods
+from apps.IA_Coach.services.ia_router import IARouter, IARouterError
+from apps.IA_Coach.serializers import RecommendationsResponseSerializer
+import json
+from django.conf import settings
+
+logger = logging.getLogger(__name__)
 
 
-def _get_client() -> "genai.Client":
-    """Inicializa el cliente de la API con la API_KEY del .env."""
-    load_dotenv()
-    api_key = os.getenv("API_KEY")
-    if not api_key:
-        raise RuntimeError("API_KEY no configurada. Agrega API_KEY al .env")
-    return genai.Client(api_key=api_key)
-
-
-def _build_prompt(profile) -> str:
+class IARecommendationsService:
     """
-    Construye el prompt en base al perfil del usuario.
-    Usa los nombres de campo de tu ModelUser (ya existen en la migración).
+    Orquesta: arma payload -> construye prompt -> llama al router -> valida JSON -> retorna dict.
     """
-    # Si tus campos son choices, puedes usar get_<field>_display() para su etiqueta humana.
-    focus = getattr(profile, "first_focus_area", None)
-    try:
-        # Si el campo es choices
-        focus_display = profile.get_first_focus_area_display()
-    except Exception:
-        focus_display = focus
 
-    obj = getattr(profile, "user_objective", "")
-    motivation = getattr(profile, "motivation_level", None)
-    experience = getattr(profile, "experience_level_user", None)
-
-    parts = [
-        f"Mi foco principal es: {focus_display}",
-        f"Mi objetivo es: {obj}",
-    ]
-    if motivation is not None:
-        parts.append(f"Nivel de motivación (1-20): {motivation}")
-    if experience is not None:
-        parts.append(f"Nivel de experiencia (1-20): {experience}")
-
-    return " | ".join(parts)
-
-
-def generate_coach_message(user_id: int) -> str:
-    """
-    Genera un mensaje de coaching. Si el ModelUser (perfil) NO existe,
-    usa un prompt mínimo con datos del auth_user para poder probar de inmediato.
-    """
-    from django.contrib.auth import get_user_model
-    from apps.Users.models import ModelUser
-
-    User = get_user_model()
-
-    # 1) Trae el usuario base (auth_user)
-    try:
-        user = User.objects.get(id=user_id)
-    except User.DoesNotExist:
-        raise ValueError(f"No existe User con id={user_id}")
-
-    # 2) Intenta traer el perfil; si no existe, arma prompt mínimo
-    try:
-        profile = ModelUser.objects.select_related("user").get(user=user)
-        prompt = _build_prompt(profile)  # tu función existente
-    except ModelUser.DoesNotExist:
-        # Fallback mínimo para poder PROBAR YA MISMO
-        prompt = f"Usuario: {getattr(user, 'username', user_id)} | Objetivo: {getattr(user, 'user_objectives',ModelUser.user_objective)} | Foco: {getattr(user,'first_focus_area',ModelUser.first_focus_area)} | Motivación: {getattr(user,'motivation_level',ModelUser.motivation_level)}"
-
-    # 3) Llamada al modelo
-    client = _get_client()
-    resp = client.models.generate_content(
-        model="gemini-2.5-pro",
-        contents=prompt,
-    )
-
-    text = None
-    for attr in ("text", "output_text"):
-        if hasattr(resp, attr):
-            text = getattr(resp, attr)
-            if text:
-                break
-
-    if not text:
+    @staticmethod
+    def _ensure_json(obj_or_text: Any) -> Dict[str, Any]:
+        """Acepta dict o str. Si viene texto, intenta parsear JSON o extraerlo."""
+        if isinstance(obj_or_text, dict):
+            return obj_or_text
+        text = str(obj_or_text or "").strip()
         try:
-            text = "".join(
-                (getattr(part, "text", "") or "")
-                for part in resp.candidates[0].content.parts
-            ).strip()
-        except Exception:
-            text = str(resp)
+            return json.loads(text)
+        except json.JSONDecodeError:
+            # Intento de extracción de primer bloque JSON
+            match = re.search(r"\{.*\}", text, flags=re.DOTALL)
+            if match:
+                return json.loads(match.group(0))
+            raise
 
-    return text or ""
+    @staticmethod
+    def get_recommendations(user, days: int = 30) -> Dict[str, Any]:
+        payload = build_llm_payload(user, days=days, use_cache=True)
+        prompt = build_prompt_for_moods(payload)
 
+        try:
+            raw = IARouter.generate_json(prompt, temperature=0.2)
+        except IARouterError as exc:
+            # Fallback seguro y breve
+            logger.warning("IA Router error. Devolviendo fallback. %s", exc)
+            raw = {
+                "summary": "Resumen no disponible por ahora. Te dejamos acciones simples para hoy.",
+                "actions": [
+                    {
+                        "title": "Pausa de respiración 3 minutos",
+                        "description": "Inhala 4s, sostén 2s, exhala 6s durante 3 minutos.",
+                        "why_it_helps": "Baja activación fisiológica y reduce estrés percibido.",
+                        "duration_minutes": 3,
+                        "effort": "low",
+                        "priority": "now",
+                    },
+                    {
+                        "title": "Mini caminata",
+                        "description": "Camina 10 minutos al aire libre o en casa.",
+                        "why_it_helps": "Movimiento breve mejora energía y ánimo.",
+                        "duration_minutes": 10,
+                        "effort": "low",
+                        "priority": "soon",
+                    },
+                ],
+                "alerts": {
+                    "require_professional_support": False,
+                    "high_stress": False,
+                    "poor_sleep": False,
+                },
+                "next_check_in_days": 3,
+            }
 
+        # Validación robusta de salida
+        data = IARecommendationsService._ensure_json(raw)
+        ser = RecommendationsResponseSerializer(data=data)
+        try:
+            ser.is_valid(raise_exception=True)
+        except ValidationError as exc:
+            logger.error("Respuesta IA inválida: %s | data=%s", exc, data)
+            # Sanitiza a estructura mínima válida
+            data = {
+                "summary": data.get("summary", "Revisión pendiente."),
+                "actions": [],
+                "alerts": {"require_professional_support": False, "high_stress": False, "poor_sleep": False},
+                "next_check_in_days": 3,
+            }
 
-if __name__ == "__main__":
-    # Permite correr este archivo como script suelto:
-    #   $ python apps/IA_Coach/services/ia_services.py
-    import sys
-    from pathlib import Path
-    import django
+        return ser.data if ser.is_valid() else data
 
-    # Asegura que el root del proyecto esté en sys.path
-    ROOT = Path(__file__).resolve().parents[3]  # .../Habits-core
-    if str(ROOT) not in sys.path:
-        sys.path.insert(0, str(ROOT))
+    def get_recommendations_for_user(user, days: int = 30, temperature: float = 0.1) -> Dict[str, Any]:
+        if not getattr(settings, "GEMINI_API_KEY", None):
+            raise RuntimeError("Falta GEMINI_API_KEY en settings/.env")
 
-    # Configura Django
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.config.settings")
-    django.setup()
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
-    # Cambia el id según tu usuario de prueba
-    USER_ID = int(os.getenv("TEST_USER_ID", "1"))
-    print(generate_coach_message(USER_ID))
+        payload = build_llm_payload(user, days=days, use_cache=False)
+        prompt = build_prompt_for_moods(payload)
+        schema = payload["constraints"]["output_schema"]
+        cfg = GenerateContentConfig(
+            temperature=temperature,
+            response_mime_type="application/json",
+            response_schema=schema,
+        )
+
+        model_name = getattr(settings, "GEMINI_MODEL", "gemini-2.5-flash")
+
+        try:
+            resp = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config=cfg,
+            )
+        except Exception as e:
+            logger.exception("Error llamando a Gemini: %s", e)
+            return {
+                "payload_used": payload,
+                "llm_output": {
+                    "summary": "No pudimos generar recomendaciones ahora. Prueba nuevamente en unos minutos.",
+                    "actions": [],
+                    "alerts": {
+                        "require_professional_support": False,
+                        "high_stress": False,
+                        "poor_sleep": False,
+                    },
+                    "next_check_in_days": 3,
+                },
+            }
+
+        def _resp_to_text(r) -> str:
+            if getattr(r, "text", None):
+                return r.text
+            try:
+                if getattr(r, "candidates", None):
+                    cand = r.candidates[0]
+                    for p in getattr(cand.content, "parts", []) or []:
+                        if getattr(p, "text", None):
+                            return p.text
+            except Exception:
+                pass
+            return ""
+
+        raw_text = _resp_to_text(resp)
+
+        try:
+            data = json.loads(raw_text)
+        except json.JSONDecodeError:
+            logger.warning("Gemini no devolvió JSON válido. Texto crudo: %.180s", raw_text)
+            data = {}
+
+        # sanea claves mínimas esperadas
+        data = {
+            "summary": data.get("summary", (raw_text or "Sin resumen por ahora.")[:220]),
+            "actions": data.get("actions", []),
+            "alerts": data.get("alerts", {
+                "require_professional_support": False,
+                "high_stress": False,
+                "poor_sleep": False,
+            }),
+            "next_check_in_days": data.get("next_check_in_days", 3),
+        }
+
+        return {"payload_used": payload, "llm_output": data}

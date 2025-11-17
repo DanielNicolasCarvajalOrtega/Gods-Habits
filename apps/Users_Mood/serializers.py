@@ -2,6 +2,7 @@ from rest_framework import serializers
 from .models import UserMood
 from django.utils import timezone
 
+
 class UserMoodSerializers(serializers .ModelSerializer):
     class Meta:
         model = UserMood
@@ -45,4 +46,6 @@ class UserMoodSerializers(serializers .ModelSerializer):
         if "date" not in value or value["date"] is None:
             value["date"] = timezone.now().date()
         return value
+
+
 

@@ -10,11 +10,6 @@ from django.db.models.functions import Coalesce
 
 
 class HabitService:
-    """LOGICA DE NEGOCIOS DE HABITOS"""
-
-    ##MAX_ACTIVE_HABITS_FREE = 10
-    ##MAX_ACTIVE_HABITS_PREMIUM = 50
-
     @staticmethod
     def get_user_habits(user:User,
                         is_active: Optional[bool] = True) -> List[Habits]:
@@ -230,11 +225,11 @@ class HabitService:
             .only('id', 'title', 'target_minutes', 'priority')
             .annotate(
                 status_today=Coalesce(
-                    Subquery(exec_qs.values('status')[:1]),  # ✅ status
+                    Subquery(exec_qs.values('status')[:1]),
                     Value('Pending')
                 ),
                 execution_id=Coalesce(
-                    Subquery(exec_qs.values('id')[:1]),  # ✅ CORREGIDO: 'id' no 'status'
+                    Subquery(exec_qs.values('id')[:1]),
                     Value(None, output_field=IntegerField())
                 )
             ).values('id', 'title', 'target_minutes', 'priority', 'status_today', 'execution_id')
@@ -242,7 +237,7 @@ class HabitService:
 
         return [
             {
-                'habit_id': h['id'],  # ✅ Mejor sin espacios en keys
+                'habit_id': h['id'],
                 'title': h['title'],
                 'target_minutes': h['target_minutes'],
                 'priority': h['priority'],
