@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework.test import APIClient
 from apps.Habits.models import Habit_execution
-
+from unittest.mock import patch ,MagicMock
 User = get_user_model()
 
 
@@ -16,6 +16,12 @@ def test_configure_settings_for_test(django_db_blocker):
     settings.USE_TZ = True
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.config.settings")
     yield
+
+@pytest.fixture
+def mock_generate():
+    with patch('apps.IA_Coach.services.ia_services.IARouter.generate_json') as mock_generate_json:
+        mock_generate_json.return_value = {}
+        yield mock_generate_json
 
 
 @pytest.fixture(autouse=True)

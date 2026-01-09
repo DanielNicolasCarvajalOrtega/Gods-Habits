@@ -7,6 +7,7 @@ from django.template.defaultfilters import first
 
 from apps.Users.models import ModelUser
 from datetime import time
+
 @pytest.mark.django_db
 class TestModelUser:
     def test_model_user_creates_and_associates_with_django_user(self,test_user_factory,test_model_user_factory):
@@ -157,6 +158,7 @@ class TestModelUser:
 
         str_repr = str(model_user)
 
-        assert 'Nicolas' in str_repr.lower() or 'Advanced' in str_repr.lower()
+        assert 'Nicolas' in str_repr or 'Advanced' in str_repr
+        
 
 

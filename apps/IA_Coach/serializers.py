@@ -12,5 +12,5 @@ class RecommendationsResponseSerializer(serializers.Serializer):
     summary = serializers.CharField()
     actions = RecommendationItemSerializer(many=True, min_length=0, max_length=5)
     alerts = serializers.DictField(child=serializers.BooleanField(), allow_empty=False)
-    next_check_in_days = serializers.IntegerField(min_value=1, max_value=14)
+    next_check_in_days = serializers.IntegerField(min_value=1, max_value=31)
 

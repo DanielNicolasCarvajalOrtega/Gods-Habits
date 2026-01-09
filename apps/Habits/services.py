@@ -124,22 +124,25 @@ class HabitService:
 
     @staticmethod
     def calculated_completion_rate(user:User, days: int=7):
-        """Calcular tasa de complejidad"""
-
+        """Calcular tasa de complejidad basada en días del período"""
+        
         today = timezone.now().date()
-        start_date = today - timedelta(days=days)
+        start_date = today - timedelta(days=days-1)
         executions = Habit_execution.objects.filter(
             user=user,
             execution_date__gte= start_date,
             execution_date__lte=today
         )
 
-        total = executions.count()
-        if total==0:
+        # Total de días en el período
+        total = days
+        
+        completed = executions.filter(status='Completed').count()
+        
+        if total == 0:
             return 0.0
 
-        completed = executions.filter(status='Completed').count()
-        return round((completed/total)* 100,2)
+        return round((completed/total)* 100, 2)
 
     @staticmethod
     def calculate_habit_streak(habit_id: int, user: User) -> int:
