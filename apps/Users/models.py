@@ -5,7 +5,8 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 
 
 class ModelUser(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
+    user = models.OneToOneField(User, on_delete=models.CASCADE,
+             related_name="profile")
 
         # TIPO DE USUARIO
     USER_TYPE_CHOICHES = [
@@ -45,7 +46,7 @@ class ModelUser(models.Model):
     preferred_evening_time = models.TimeField(null=True, blank=True, help_text = "Horas preferidas por la tarde")
     motivation_level = models.IntegerField(
         validators = [MinValueValidator(1),   MaxValueValidator(20)],
-        help_text = "Nivel de motivacion de 1 ha 10"
+        help_text = "Nivel de motivacion de 1 ha 20"
     )
 
     user_objective = models.TextField(help_text="Objetivos principales del usuario")
@@ -56,7 +57,7 @@ class ModelUser(models.Model):
     )
 
     def __str__(self):
-        return f"{self.user.username} - {self.get_user_type_display()}"
+        return f"{self.user.username} - {self.user_type}"
 
 
 
